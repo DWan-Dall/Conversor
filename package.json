@@ -1,0 +1,14 @@
+{
+  "name": "video-converter",
+  "version": "1.0.0",
+  "description": "Conversor de vídeo web com upload de arquivos grandes e conversão para múltiplos formatos via FFmpeg",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "fluent-ffmpeg": "^2.1.3",
+    "multer": "^2.0.0"
+  }
+}

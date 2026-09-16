@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversor de vídeo</title>
+<style>
+  :root {
+    --bg: #14171a;
+    --panel: #1c2024;
+    --panel-raised: #23282d;
+    --line: #2e3439;
+    --text: #e8e6e1;
+    --text-dim: #8b9198;
+    --accent: #e8543e;
+    --accent-dim: #a63f30;
+    --ok: #5fb98c;
+    --err: #e2665a;
+    --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .deck {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .masthead {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .tally {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--line);
+    flex-shrink: 0;
+    transition: background 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .tally.live {
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(232, 84, 62, 0.15);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+
+  .tally.ready {
+    background: var(--ok);
+    box-shadow: 0 0 0 4px rgba(95, 185, 140, 0.15);
+    animation: none;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .sub {
+    color: var(--text-dim);
+    font-size: 13.5px;
+    margin: 6px 0 28px;
+    line-height: 1.5;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 24px;
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 8px;
+    padding: 34px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--accent-dim);
+    background: rgba(232, 84, 62, 0.04);
+  }
+
+  .dropzone .hint {
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  .dropzone .hint-sub {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  .filecard {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 16px;
+    background: var(--panel-raised);
+  }
+
+  .filecard.show { display: flex; }
+
+  .filecard .name {
+    font-size: 13.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .filecard .size {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .section-label {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin: 22px 0 10px;
+  }
+
+  .formats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .fmt {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 7px 13px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+
+  .fmt:hover { border-color: var(--text-dim); }
+
+  .fmt.selected {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(232, 84, 62, 0.08);
+  }
+
+  .size-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .size-input {
+    width: 110px;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    transition: border-color 0.15s ease, opacity 0.15s ease;
+  }
+
+  .size-input:focus {
+    outline: none;
+    border-color: var(--accent-dim);
+  }
+
+  .size-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .size-unit {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+
+  .size-hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  .go {
+    width: 100%;
+    margin-top: 24px;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, opacity 0.15s ease;
+  }
+
+  .go:hover:not(:disabled) { background: #d1492f; }
+
+  .go:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .track {
+    margin-top: 22px;
+    display: none;
+  }
+
+  .track.show { display: block; }
+
+  .track-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 7px;
+  }
+
+  .track-label {
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+
+  .track-value {
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--line);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.2s ease;
+  }
+
+  .bar-fill.done { background: var(--ok); }
+
+  .status-line {
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--text-dim);
+    display: none;
+  }
+
+  .status-line.show { display: block; }
+
+  .status-line.err { color: var(--err); }
+
+  .download {
+    display: none;
+    margin-top: 18px;
+    text-align: center;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--ok);
+    color: var(--ok);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .download.show { display: block; }
+
+  .download:hover { background: rgba(95, 185, 140, 0.08); }
+
+  input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="masthead">
+    <span class="tally" id="tally"></span>
+    <h1>Conversor de vídeo</h1>
+  </div>
+  <p class="sub">Envie um arquivo grande e converta para outro formato. O processamento roda no servidor, então não depende da memória do navegador.</p>
+
+  <div class="panel">
+    <div class="dropzone" id="dropzone">
+      <div class="hint" id="dropHint">Arraste um vídeo aqui ou clique para escolher</div>
+      <div class="hint-sub">Sem limite prático de duração — arquivos de até 3 GiB por padrão</div>
+    </div>
+    <input type="file" id="fileInput" accept="video/*">
+
+    <div class="filecard" id="filecard">
+      <span class="name" id="fileName"></span>
+      <span class="size" id="fileSize"></span>
+    </div>
+
+    <div class="section-label">Converter para</div>
+    <div class="formats" id="formats">
+      <button class="fmt" data-fmt="mp4">MP4</button>
+      <button class="fmt" data-fmt="webm">WEBM</button>
+      <button class="fmt" data-fmt="mov">MOV</button>
+      <button class="fmt" data-fmt="avi">AVI</button>
+      <button class="fmt" data-fmt="mkv">MKV</button>
+      <button class="fmt" data-fmt="gif">GIF</button>
+      <button class="fmt" data-fmt="mp3">MP3 (só áudio)</button>
+    </div>
+
+    <div class="section-label">Tamanho máximo (opcional)</div>
+    <div class="size-row">
+      <input type="number" id="sizeInput" class="size-input" placeholder="ex: 200" min="1">
+      <span class="size-unit">MB</span>
+    </div>
+    <div class="size-hint" id="sizeHint">Calcula o bitrate para caber nesse tamanho. Não funciona com GIF.</div>
+
+    <button class="go" id="goBtn" disabled>Converter</button>
+
+    <div class="track" id="uploadTrack">
+      <div class="track-row">
+        <span class="track-label">enviando</span>
+        <span class="track-value" id="uploadPct">0%</span>
+      </div>
+      <div class="bar"><div class="bar-fill" id="uploadFill"></div></div>
+    </div>
+
+    <div class="track" id="convertTrack">
+      <div class="track-row">
+        <span class="track-label">convertendo</span>
+        <span class="track-value" id="convertPct">0%</span>
+      </div>
+      <div class="bar"><div class="bar-fill" id="convertFill"></div></div>
+    </div>
+
+    <div class="status-line" id="statusLine"></div>
+    <a class="download" id="downloadLink">Baixar arquivo convertido</a>
+  </div>
+</div>
+
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const dropHint = document.getElementById('dropHint');
+  const fileInput = document.getElementById('fileInput');
+  const filecard = document.getElementById('filecard');
+  const fileNameEl = document.getElementById('fileName');
+  const fileSizeEl = document.getElementById('fileSize');
+  const formatsEl = document.getElementById('formats');
+  const sizeInput = document.getElementById('sizeInput');
+  const sizeHint = document.getElementById('sizeHint');
+  const goBtn = document.getElementById('goBtn');
+  const tally = document.getElementById('tally');
+
+  const uploadTrack = document.getElementById('uploadTrack');
+  const uploadPct = document.getElementById('uploadPct');
+  const uploadFill = document.getElementById('uploadFill');
+
+  const convertTrack = document.getElementById('convertTrack');
+  const convertPct = document.getElementById('convertPct');
+  const convertFill = document.getElementById('convertFill');
+
+  const statusLine = document.getElementById('statusLine');
+  const downloadLink = document.getElementById('downloadLink');
+
+  let selectedFile = null;
+  let selectedFormat = null;
+
+  function fmtSize(bytes) {
+    const units = ['B', 'KiB', 'MiB', 'GiB'];
+    let i = 0;
+    let n = bytes;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+    return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+  }
+
+  function resetTracks() {
+    uploadTrack.classList.remove('show');
+    convertTrack.classList.remove('show');
+    uploadFill.style.width = '0%';
+    convertFill.style.width = '0%';
+    uploadFill.classList.remove('done');
+    convertFill.classList.remove('done');
+    statusLine.classList.remove('show', 'err');
+    statusLine.textContent = '';
+    downloadLink.classList.remove('show');
+    tally.classList.remove('live', 'ready');
+  }
+
+  function updateGoState() {
+    goBtn.disabled = !(selectedFile && selectedFormat);
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    fileNameEl.textContent = file.name;
+    fileSizeEl.textContent = fmtSize(file.size);
+    filecard.classList.add('show');
+    dropHint.textContent = 'Trocar arquivo';
+    resetTracks();
+    updateGoState();
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+  ['dragenter', 'dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag'); })
+  );
+  ['dragleave', 'drop'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); })
+  );
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    handleFile(file);
+  });
+
+  formatsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.fmt');
+    if (!btn) return;
+    [...formatsEl.children].forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedFormat = btn.dataset.fmt;
+
+    if (selectedFormat === 'gif') {
+      sizeInput.value = '';
+      sizeInput.disabled = true;
+      sizeHint.textContent = 'GIF não suporta tamanho alvo — o arquivo sai no tamanho que o ffmpeg gerar.';
+    } else {
+      sizeInput.disabled = false;
+      sizeHint.textContent = 'Calcula o bitrate para caber nesse tamanho. Não funciona com GIF.';
+    }
+    updateGoState();
+  });
+
+  function setStatus(msg, isErr) {
+    statusLine.textContent = msg;
+    statusLine.classList.add('show');
+    statusLine.classList.toggle('err', !!isErr);
+  }
+
+  async function convert(jobId) {
+    convertTrack.classList.add('show');
+    setStatus('Convertendo no servidor…');
+
+    const targetSizeMB = sizeInput.value ? Number(sizeInput.value) : null;
+
+    const res = await fetch(`/convert/${jobId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format: selectedFormat, targetSizeMB })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus(data.error || 'Falha ao iniciar a conversão', true);
+      tally.classList.remove('live');
+      return;
+    }
+
+    const source = new EventSource(`/progress/${jobId}`);
+    source.onmessage = (evt) => {
+      const payload = JSON.parse(evt.data);
+      if (payload.status === 'error') {
+        setStatus(payload.error || 'Erro durante a conversão', true);
+        tally.classList.remove('live');
+        source.close();
+        goBtn.disabled = false;
+        return;
+      }
+      const pct = payload.progress || 0;
+      convertPct.textContent = `${pct}%`;
+      convertFill.style.width = `${pct}%`;
+
+      if (payload.status === 'done') {
+        convertFill.classList.add('done');
+        convertPct.textContent = '100%';
+        convertFill.style.width = '100%';
+        tally.classList.remove('live');
+        tally.classList.add('ready');
+
+        let msg = 'Conversão concluída.';
+        if (payload.sizeBytes) msg += ` Arquivo final: ${fmtSize(payload.sizeBytes)}.`;
+        if (payload.warning) msg += ` ${payload.warning}`;
+        setStatus(msg, false);
+
+        downloadLink.href = `/download/${jobId}`;
+        downloadLink.classList.add('show');
+        source.close();
+        goBtn.disabled = false;
+      }
+    };
+    source.onerror = () => {
+      source.close();
+    };
+  }
+
+  goBtn.addEventListener('click', () => {
+    if (!selectedFile || !selectedFormat) return;
+    resetTracks();
+    goBtn.disabled = true;
+    tally.classList.add('live');
+    uploadTrack.classList.add('show');
+    setStatus('Enviando arquivo…');
+
+    const form = new FormData();
+    form.append('video', selectedFile);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload');
+
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const pct = Math.round((e.loaded / e.total) * 100);
+      uploadPct.textContent = `${pct}%`;
+      uploadFill.style.width = `${pct}%`;
+    };
+
+    xhr.onload = () => {
+      let data;
+      try { data = JSON.parse(xhr.responseText); } catch { data = {}; }
+      if (xhr.status !== 200) {
+        setStatus(data.error || 'Falha no envio do arquivo', true);
+        tally.classList.remove('live');
+        goBtn.disabled = false;
+        return;
+      }
+      uploadFill.classList.add('done');
+      convert(data.jobId);
+    };
+
+    xhr.onerror = () => {
+      setStatus('Erro de rede durante o envio', true);
+      tally.classList.remove('live');
+      goBtn.disabled = false;
+    };
+
+    xhr.send(form);
+  });
+</script>
+</body>
+</html>
